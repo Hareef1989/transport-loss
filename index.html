@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Transport Loss &amp; ปิดงาน</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--tx:#222;--mu:#666;--bd:#d9dce1;--pri:#8aa800;--ok:#1f7a1f;--okb:#e6f4e6;--bad:#b3261e;--badb:#fbe9e7;--warn:#9a6700;--warnb:#fff4d6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171a;--card:#1f2226;--tx:#eceff1;--mu:#9aa3ab;--bd:#343a40;--pri:#c5de3d;--ok:#6fd46f;--okb:#1c3320;--bad:#ff8a80;--badb:#3a1f1d;--warn:#f2c14e;--warnb:#3a2f14}}
+:root[data-theme="dark"]{--bg:#15171a;--card:#1f2226;--tx:#eceff1;--mu:#9aa3ab;--bd:#343a40;--pri:#c5de3d;--ok:#6fd46f;--okb:#1c3320;--bad:#ff8a80;--badb:#3a1f1d;--warn:#f2c14e;--warnb:#3a2f14}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Noto Sans Thai",sans-serif;font-size:15px}
+header{background:var(--pri);color:#1d2600;padding:14px 16px;font-weight:700;text-align:center;font-size:17px}
+main{max-width:720px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+h2{font-size:15px;margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+h3{font-size:13px;margin:14px 0 8px;color:var(--mu)}
+label{display:block;font-size:12px;color:var(--mu);margin-bottom:3px}
+input,select,textarea{width:100%;padding:9px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:15px;font-family:inherit}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.full{grid-column:1/-1}
+.res{margin-top:10px;padding:10px;border-radius:8px;font-weight:600;font-size:14px}
+.ok{background:var(--okb);color:var(--ok)}.bad{background:var(--badb);color:var(--bad)}.warn{background:var(--warnb);color:var(--warn)}
+.loss{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.loss div{flex:1;min-width:140px;text-align:center;padding:10px;border:1px solid var(--bd);border-radius:10px;font-size:12px;color:var(--mu)}
+.loss b{display:block;font-size:22px;margin-top:2px;color:var(--tx)}
+button{padding:11px 14px;border:0;border-radius:8px;background:var(--pri);color:#1d2600;font-weight:700;font-size:15px;cursor:pointer;width:100%}
+button.s{background:var(--bd);color:var(--tx);width:auto;padding:6px 10px;font-size:13px;font-weight:600}
+.item{border-top:1px solid var(--bd);padding:10px 0;font-size:13px}
+.item pre{white-space:pre-wrap;margin:6px 0;font-family:inherit;color:var(--mu)}
+.m0{margin:0}.ana{white-space:pre-wrap;font-family:inherit;margin:0;font-size:14px}.pst{font-size:13px;margin-top:6px;color:var(--mu)}.mb{margin-bottom:12px}button.wide{width:100%;margin-bottom:12px;padding:10px}.empty{color:var(--mu)}[hidden]{display:none!important}
+</style>
+<link rel="icon" href="data:,">
+<meta name="robots" content="noindex,nofollow">
+</head>
+<body>
+<header>Check Power/Status Transport</header>
+<main>
+<div class="card g">
+  <div class="full"><label>เลขงาน (Job)</label><input id="job" maxlength="100" placeholder="JB26-xxxxxxx"></div>
+  <div><label>🟢 ปกติ เมื่อ diff ≤ (dB)</label><input id="thr1" type="number" step="0.1" value="1"></div><div><label>🔴 ผิดปกติ เมื่อ diff > (dB)</label><input id="thr" type="number" step="0.1" value="3"></div>
+</div>
+<div class="card"><label>วางข้อความจากหน้า Check Power/Status (ดึงค่าเข้าช่องอัตโนมัติ)</label><textarea id="paste" rows="4" maxlength="20000" placeholder="วางข้อความที่คัดลอกมา เช่น NE: ... Port: ... Tx: ... Rx: ..."></textarea><div id="pst" class="pst"></div></div>
+<button id="clr" class="s wide">ล้างข้อความ</button>
+<div id="links"></div>
+<button id="add" class="mb">+ เพิ่มลิงก์</button>
+<div class="card"><div id="verdict" class="res m0"></div></div>
+<div class="card"><h2>สรุปวิเคราะห์</h2><pre id="ana" class="ana"></pre></div>
+<div class="card">
+  <h2>ปิดงาน</h2>
+  <div class="g">
+    <div class="full"><label>ผลการดำเนินการ</label>
+      <select id="cause"><option>ตรวจสอบแล้ว ค่า Power ปกติ</option><option>ทำความสะอาดหัว Fiber / เปลี่ยน Patch cord</option><option>เปลี่ยน SFP</option><option>แก้ไขเส้น Fiber / Splice</option><option>อื่นๆ</option></select></div>
+    <div class="full"><label>หมายเหตุ / ข้อความปิดงาน</label><textarea id="note" rows="12" maxlength="5000"></textarea></div>
+    <div class="full"><button id="close">ปิดงาน</button></div>
+  </div>
+</div>
+<div class="card"><h2>งานที่ปิดแล้ว</h2><div id="list"></div></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const B=()=>({name:'',e:[0,1].map(()=>({ne:'',port:'',tx:NaN,txr:NaN,rx:NaN,rxr:NaN,lo:NaN,hi:NaN,date:'',up:1}))});
+let S=[B()];
+const F=[['ne','NE','text'],['port','Port','text'],['tx','Tx (dBm)','number'],['txr','Tx Ref(Low)','number'],['rx','Rx (dBm)','number'],['rxr','Rx Ref(Low)','number'],['lo','Range ต่ำสุด','number'],['hi','Range สูงสุด','number'],['date','History Date','date'],['up','Link','sel']];
+function build(){
+  $('links').innerHTML=S.map((L,i)=>`<div class="card"><h2>ลิงก์ ${i+1}${S.length>1?`<button class="s" data-act="rm" data-i="${i}">ลบ</button>`:''}</h2>
+  <label>ชื่อลิงก์</label><input data-i="${i}" data-k="name" value="${esc(L.name)}">
+  ${L.e.map((d,j)=>`<h3>ฝั่ง ${j+1}</h3><div class="g">${F.map(([k,t,ty])=>ty==='sel'
+    ?`<div><label>${t}</label><select data-i="${i}" data-j="${j}" data-k="up"><option value="1" ${d.up?'selected':''}>Up</option><option value="0" ${d.up?'':'selected'}>Down</option></select></div>`
+    :`<div><label>${t}</label><input data-i="${i}" data-j="${j}" data-k="${k}" type="${ty}" ${ty==='number'?'step="0.01"':''} value="${esc(Number.isNaN(d[k])?'':d[k])}"></div>`).join('')}</div><div class="res" id="r${i}_${j}"></div>`).join('')}
+  <div class="loss"><div id="a${i}"></div><div id="b${i}"></div></div><div class="res warn" id="w${i}" hidden></div></div>`).join('');
+  calc();
+}
+function parse(txt){
+ const HM={'А':'A','В':'B','С':'C','Е':'E','К':'K','М':'M','Н':'H','О':'O','Р':'P','Т':'T','Х':'X','а':'a','с':'c','е':'e','о':'o','р':'p','х':'x','у':'y','і':'i'};
+ txt=txt.slice(0,20000).normalize('NFKC').replace(/[\u0400-\u04FF]/g,c=>HM[c]||c);
+ const names=txt.match(/[A-Z]{2,4}\d{2,4}_\d+G/g)||[],ends=[];
+ txt.split(/NE:/).slice(1).forEach(b=>{
+  const m=b.match(/Tx:\s*(-?\d+\.?\d*)[\s\S]*?Ref\(Low\):\s*(-?\d+\.?\d*)[\s\S]*?Rx:\s*(-?\d+\.?\d*)[\s\S]*?Ref\(Low\):\s*(-?\d+\.?\d*)/);
+  if(!m)return;
+  const ne=((b.match(/^\s*([A-Za-z0-9_]+)/)||[])[1]||'').replace(/O1H$/,'01H'),p=(b.match(/Port:\s*([A-Za-z0-9]+\s*\d+\/\d+(?:\/\d+)?)/)||[])[1]||'',r=b.match(/Working Range:\s*(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)/),dt=(b.match(/\d{4}-\d{2}-\d{2}/)||[''])[0],lk=b.match(/Link:\s*(Up|Down)/i);
+  ends.push({ne,port:p.replace(/\s+/g,''),tx:+m[1],txr:+m[2],rx:+m[3],rxr:+m[4],lo:r?+r[1]:-24,hi:r?+r[2]:-7,date:dt,up:lk&&/down/i.test(lk[1])?0:1});
+ });
+ const out=[];
+ for(let i=0;i+1<ends.length;i+=2)out.push({name:names[i/2]||'',e:[ends[i],ends[i+1]]});
+ return out;
+}
+$('paste').oninput=()=>{const t=$('paste').value;if(!t.trim()){$('pst').textContent='';return}const r=parse(t);if(!r.length){$('pst').textContent='ยังไม่พบข้อมูล (ต้องมี NE, Tx, Rx, Ref ครบ 2 ฝั่ง)';return}S=r;build();$('pst').textContent='ดึงข้อมูลแล้ว '+r.length+' ลิงก์'};
+window.rm=i=>{S.splice(i,1);build()};
+$('clr').onclick=()=>{$('paste').value='';$('pst').textContent='';S.forEach(L=>{L.name='';L.e.forEach(d=>{d.ne='';d.port='';d.date='';d.up=1;['tx','txr','rx','rxr','lo','hi'].forEach(k=>d[k]=NaN)})});build()};
+$('add').onclick=()=>{S.push(B());build()};
+document.addEventListener('input',ev=>{
+  const t=ev.target,d=t.dataset;if(d.i===undefined)return;
+  const v=t.type==='number'?parseFloat(t.value):d.k==='up'?parseInt(t.value):t.value;
+  if(d.j===undefined)S[d.i][d.k]=v;else S[d.i].e[d.j][d.k]=v;calc();
+});
+const f=x=>isNaN(x)?'-':x.toFixed(2);
+let pass=false,txt='';
+function calc(){
+  const t1=parseFloat($('thr1').value),thr=parseFloat($('thr').value);let all=true,lv=0,iss=[],out=[],an=[];
+  S.forEach((L,i)=>{
+    const [a,b]=L.e;
+    L.e.forEach((d,j)=>{
+      if(isNaN(d.rx)&&isNaN(d.rxr)){const e0=$(`r${i}_${j}`);e0.className='res';e0.textContent='ยังไม่ได้กรอกข้อมูล';return}
+      const diff=Math.abs(d.rx-d.rxr),inr=d.rx>=d.lo&&d.rx<=d.hi,up=d.up===1,okd=diff<=thr,lvl=(!inr||!up||diff>thr)?2:diff>t1?1:0;
+      lv=Math.max(lv,lvl);an.push({i,j,d,o:L.e[1-j],diff,sd:d.rx-d.rxr,inr,up,lvl});if(lvl>0){all=false;iss.push(lvl===1?'ลิงก์ '+(i+1)+' '+d.ne+': diff '+f(diff)+' เฝ้าระวัง':`ลิงก์ ${i+1} ${d.ne}: ${!inr?'Rx นอก range ':''}${!up?'Link Down ':''}${!okd?'diff '+f(diff)+' เกินเกณฑ์':''}`)}
+      const el=$(`r${i}_${j}`);el.className='res '+['ok','warn','bad'][lvl];
+      el.textContent=`${['🟢 ปกติ','🟡 เฝ้าระวัง','🔴 ผิดปกติ'][lvl]} · Rx diff ${f(diff)} (${inr?'in':'out of'} working range), Link: ${up?'Up':'Down'} · margin ถึงขอบล่าง ${f(d.rx-d.lo)} dB`;
+    });
+    const l0=a.tx-b.rx,l1=b.tx-a.rx;
+    $('a'+i).innerHTML=`${esc(a.ne||'ฝั่ง 1')} → ${esc(b.ne||'ฝั่ง 2')}<b>${f(l0)} dB</b>`;
+    $('b'+i).innerHTML=`${esc(b.ne||'ฝั่ง 2')} → ${esc(a.ne||'ฝั่ง 1')}<b>${f(l1)} dB</b>`;
+    const w=$('w'+i),gap=Math.abs(l0-l1);
+    w.hidden=!(gap>3);w.textContent=`Loss สองทิศต่างกัน ${f(gap)} dB — ควรตรวจหัว Fiber/คอนเนคเตอร์ของทิศที่ loss สูง`;
+    out.push(`[${i+1}] ${L.name}\n`+L.e.map(d=>`${d.ne} ${d.port}: Tx ${f(d.tx)}, Rx ${f(d.rx)}, diff ${f(Math.abs(d.rx-d.rxr))}, Link ${d.up?'Up':'Down'}`).join('\n')+`\nLoss ${f(l0)} / ${f(l1)} dB`);
+  });
+  const ana=analyze(an,lv);$('ana').textContent=ana;pass=all;txt=$('job').value+'\n'+out.join('\n')+'\n'+ana;
+  const v=$('verdict');v.className='res '+['ok','warn','bad'][lv];
+  v.textContent=lv===0?`🟢 ปกติ: ทุกลิงก์ (${S.length}) ค่า Power ปกติ ปิดงานได้`:(lv===1?'🟡 เฝ้าระวัง: ':'🔴 ผิดปกติ: ')+iss.join(' | ');
+  $('close').textContent=['ปิดงาน','ปิดงาน (เฝ้าระวัง)','ปิดงาน (ค่าผิดปกติ)'][lv];
+  if(S.some(L=>L.e.some(d=>isNaN(d.rx)&&isNaN(d.rxr)))){v.className='res';v.textContent='กรอกข้อมูลหรือวางข้อความด้านบนให้ครบทุกฝั่งเพื่อตรวจสอบ';$('ana').textContent='';$('close').textContent='ปิดงาน'}
+  genNote();
+}
+function analyze(an,lv){
+ const f2=x=>x.toFixed(2),t1=parseFloat($('thr1').value),bad=an.filter(a=>a.lvl>0),pn=bad.filter(a=>!a.up&&a.inr&&a.diff<=t1),ot=bad.filter(a=>!pn.includes(a));
+ if(!bad.length)return '📋 สรุปวิเคราะห์\nทุกลิงก์อยู่ใน Working Range และ Rx ใกล้เคียงค่าอ้างอิง (diff ≤ '+$('thr1').value+' dB) Link Up ไม่พบความผิดปกติ';
+ const s=['📋 สรุปวิเคราะห์ ('+(lv===1?'เฝ้าระวัง':'ผิดปกติ')+')'];
+ bad.forEach(a=>{
+  let p;
+  if(!a.up)p=a.d.ne+(a.inr&&a.diff<=t1?' Link Down ทั้งที่ค่าแสงปกติ (Rx '+f2(a.d.rx)+' dBm, diff '+f2(a.diff)+' dB)':' Link Down');
+  else if(!a.inr)p=a.d.ne+' Rx '+f2(a.d.rx)+' dBm หลุด Working Range';
+  else if(a.sd<0)p='สัญญาณที่ส่งจาก '+a.o.ne+' ไปยัง '+a.d.ne+' มีค่า Loss สะสมเพิ่มขึ้น '+f2(a.diff)+' dB';
+  else p=a.d.ne+' Rx สูงกว่าค่าอ้างอิง '+f2(a.diff)+' dB (สัญญาณเปลี่ยนจากเดิม ควรตรวจสอบ)';
+  s.push('• ลิงก์ '+(a.i+1)+' ทิศทางที่มีปัญหา: '+p);
+ });
+ if(pn.length)s.push('ข้อสังเกต: ระดับแสง (Optical Power) ของฝั่งที่ Link Down อยู่ในเกณฑ์ปกติและ diff น้อยมาก จึงไม่น่าใช่ปัญหาสายไฟเบอร์ขาดหรือสัญญาณแสงอ่อน\nสาเหตุที่เป็นไปได้:\n- ปัญหาชั้นโปรโตคอล (Layer 2/3) เช่น Port ถูก Disable, Configuration ผิดพลาด หรือการ์ด/สวิตช์ของอุปกรณ์ฝั่งใดฝั่งหนึ่งแฮงค์\n- ปัญหาการเชื่อมต่อพอร์ต เช่น Patch Cord หลวมที่หน้าตู้, SFP ไม่ Handshake หรือพอร์ตเกิด Error สูงจนลิงก์ตัด\nคำแนะนำ: ตรวจสอบสถานะการ์ด/พอร์ตที่อุปกรณ์เน็ตเวิร์ก, รีเซ็ตพอร์ต (Shut/No Shut) และตรวจสอบการตั้งค่าเพิ่มเติม');if(ot.length)s.push(Math.max(...ot.map(a=>a.lvl))===1?'สาเหตุที่เป็นไปได้:\n- หัวคอนเนคเตอร์หรือ SFP ต้นทาง/ปลายทางเริ่มสกปรก\n- สายไฟเบอร์ถูกกดทับ/ดัดโค้งงอ (Micro-bend/Macro-bend) หรือจุดต่อ (Splice) เริ่มเสื่อมสภาพ\nคำแนะนำ: ทำความสะอาดหัว Connector (Clean Patch Cord/SFP) หรือวัด Loss รายทางด้วย OTDR ก่อนสัญญาณจะดรอปจนหลุด Working Range':'สาเหตุที่เป็นไปได้:\n- สายไฟเบอร์ขาดบางส่วน/Micro-bend หรือจุดต่อหลวม\n- SFP Transceiver เสื่อมสภาพ\nคำแนะนำ: เข้าตรวจหน้างานโดยเร็ว ทำความสะอาด/เปลี่ยน Patch cord และ SFP วัดด้วย OTDR และตรวจสอบว่าสลับไปเส้นทางสำรอง (Protection) หรือไม่');
+ return s.join('\n');
+}
+function genNote(){$('note').value=$('cause').value+'\n'+txt}
+$('cause').onchange=genNote;$('job').oninput=calc;$('thr').oninput=calc;$('thr1').oninput=calc;
+let L=[];try{const r=JSON.parse(localStorage.getItem('closedJobs')||'[]');if(Array.isArray(r))L=r.slice(0,200).filter(x=>x&&typeof x==='object').map(x=>({job:String(x.job||'').slice(0,100),time:String(x.time||'').slice(0,50),pass:!!x.pass,note:String(x.note||'').slice(0,5000)}))}catch(e){}
+const save=()=>{try{localStorage.setItem('closedJobs',JSON.stringify(L))}catch(e){}};
+function render(){$('list').innerHTML=L.length?L.map((x,i)=>`<div class="item"><b>${esc(x.job)}</b> · ${esc(x.time)} · ${x.pass?'ผ่าน':'ไม่ผ่าน'}<pre>${esc(x.note)}</pre><button class="s" data-act="cp" data-i="${i}">คัดลอก</button> <button class="s" data-act="del" data-i="${i}">ลบ</button></div>`).join(''):'<div class="empty">ยังไม่มีงานที่ปิด</div>'}
+window.cp=i=>{try{navigator.clipboard.writeText(L[i].note)}catch(e){}};
+window.del=i=>{L.splice(i,1);save();render()};
+$('close').onclick=()=>{
+  if(!$('job').value.trim())return alert('กรอกเลขงาน');
+  L.unshift({job:$('job').value.trim(),time:new Date().toLocaleString('th-TH'),pass,note:$('note').value});
+  save();render();try{navigator.clipboard.writeText($('note').value)}catch(e){}
+  alert('ปิดงานแล้ว และคัดลอกข้อความปิดงานให้แล้ว');
+};
+build();render();
+document.addEventListener('click',ev=>{const b=ev.target.closest('[data-act]');if(!b)return;const i=+b.dataset.i,a=b.dataset.act;if(a==='rm')rm(i);else if(a==='cp')cp(i);else if(a==='del')del(i)});
+</script>
+</body>
+</html>
